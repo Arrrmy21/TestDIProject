@@ -5,15 +5,16 @@ import com.oleksii.config.exceptions.NoSuchBeanException;
 import com.oleksii.config.exceptions.NoUniqueBeanException;
 import org.reflections.Reflections;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class ApplicationContextImpl implements ApplicationContext {
 
-    Map<String, Class<?>> beans = new HashMap<>();
+    Map<String, Object> beans = new HashMap<>();
 
-    public ApplicationContextImpl(String packageName) throws NoUniqueBeanException {
+    public ApplicationContextImpl(String packageName) throws NoUniqueBeanException, InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
 
         Reflections reflections = new Reflections(packageName);
 
@@ -24,21 +25,19 @@ public class ApplicationContextImpl implements ApplicationContext {
     }
 
     @Override
-    public <T> Class<?> getBean(Class<T> beanType) throws NoSuchBeanException, NoUniqueBeanException {
-        var filteredBeans = beans.entrySet().stream()
-                .filter(b -> b.getValue().equals(beanType)).toList();
+    public <T> T getBean(Class<T> beanType) throws NoSuchBeanException, NoUniqueBeanException {
+        var filteredBeans = getAllBeans(beanType);
         if (filteredBeans.size() > 1) {
             throw new NoUniqueBeanException(beanType.getSimpleName());
-        } else if (filteredBeans.isEmpty()) {
-            throw new NoSuchBeanException();
         }
-
-        return filteredBeans.get(0).getValue();
+        return filteredBeans.values().stream()
+                .findFirst()
+                .map(beanType::cast)
+                .orElseThrow(NoSuchBeanException::new);
     }
 
     @Override
-    public <T> Class<?> getBean(String name, Class<T> beanType) throws NoSuchBeanException {
-
+    public <T> T getBean(String name, Class<T> beanType) throws NoSuchBeanException {
         var filteredBeans = beans.entrySet().stream()
                 .filter(b -> b.getValue().equals(beanType))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -46,31 +45,31 @@ public class ApplicationContextImpl implements ApplicationContext {
         if (filteredBeans.size() < 1 || bean == null) {
             throw new NoSuchBeanException();
         }
-        return bean;
+        return beanType.cast(bean);
     }
 
     @Override
-    public <T> Map<String, Class<?>> getAllBeans(Class<T> beanType) {
+    public <T> Map<String, Object> getAllBeans(Class<T> beanType) {
         return beans.entrySet().stream()
-                .filter(b -> b.getValue().equals(beanType))
+                .filter(b -> b.getValue().getClass().isAssignableFrom(beanType))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
-    private void processBean(Class<?> potentialBean) throws NoUniqueBeanException {
+    private void processBean(Class<?> potentialBean) throws NoUniqueBeanException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
 
         var className = potentialBean.getSimpleName();
         var annotationBeanName = potentialBean.getAnnotation(Bean.class).value();
-        String finalBeanName = null;
+        String finalBeanName;
         if (annotationBeanName.isEmpty()) {
             finalBeanName = lowercaseFirstLetter(className);
         } else {
             finalBeanName = annotationBeanName;
-
         }
         if (beans.get(finalBeanName) != null) {
             throw new NoUniqueBeanException(finalBeanName);
         }
-        beans.put(finalBeanName, potentialBean);
+        var instance = potentialBean.getConstructor().newInstance();
+        beans.put(finalBeanName, instance);
         System.out.println("Bean created!");
     }
 

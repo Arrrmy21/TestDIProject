@@ -7,9 +7,9 @@ import java.util.Map;
 
 public interface ApplicationContext {
 
-    <T> Class<?> getBean(Class<T> beanType) throws NoSuchBeanException, NoUniqueBeanException;
+    <T> T getBean(Class<T> beanType) throws NoSuchBeanException, NoUniqueBeanException;
 
-    <T> Class<?> getBean(String name, Class<T> beanType) throws NoSuchBeanException;
+    <T> T getBean(String name, Class<T> beanType) throws NoSuchBeanException;
 
-    <T> Map<String, Class<?>> getAllBeans(Class<T> beanType);
+    <T> Map<String, Object> getAllBeans(Class<T> beanType);
 }

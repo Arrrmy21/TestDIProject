@@ -7,12 +7,17 @@ import com.oleksii.entities.FirstTestClass;
 import com.oleksii.entities.NoAnnotationClass;
 import com.oleksii.entities.SecondTestClass;
 
+import java.lang.reflect.InvocationTargetException;
+
 public class BootClass {
-    public static void main(String[] args) throws NoSuchBeanException, NoUniqueBeanException {
+    public static void main(String[] args) throws NoSuchBeanException, NoUniqueBeanException, InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
+        //Initial DI Demo instead of real tests
         ApplicationContextImpl applicationContext = new ApplicationContextImpl("com.oleksii");
 
+        var firstTestClass = applicationContext.getBean(FirstTestClass.class);
+        System.out.println(firstTestClass);
         var beansByName = applicationContext.getAllBeans(FirstTestClass.class);
-        beansByName.entrySet().stream().forEach(System.out::println);
+        beansByName.entrySet().forEach(System.out::println);
 
         var annotatedClass = applicationContext.getBean(SecondTestClass.class);
         System.out.println(annotatedClass);
