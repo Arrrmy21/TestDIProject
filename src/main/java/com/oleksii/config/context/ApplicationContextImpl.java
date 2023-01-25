@@ -1,5 +1,6 @@
 package com.oleksii.config.context;
 
+import com.oleksii.config.annotations.Autowired;
 import com.oleksii.config.annotations.Bean;
 import com.oleksii.config.exceptions.NoSuchBeanException;
 import com.oleksii.config.exceptions.NoUniqueBeanException;
@@ -14,7 +15,8 @@ public class ApplicationContextImpl implements ApplicationContext {
 
     Map<String, Object> beans = new HashMap<>();
 
-    public ApplicationContextImpl(String packageName) throws NoUniqueBeanException, InvocationTargetException, NoSuchMethodException, InstantiationException, IllegalAccessException {
+    public ApplicationContextImpl(String packageName) throws NoUniqueBeanException, InvocationTargetException,
+            NoSuchMethodException, InstantiationException, IllegalAccessException, NoSuchBeanException {
 
         Reflections reflections = new Reflections(packageName);
 
@@ -22,6 +24,7 @@ public class ApplicationContextImpl implements ApplicationContext {
         for (var bean : beanAnnotatedClasses) {
             processBean(bean);
         }
+        processAutowiredBeans();
     }
 
     @Override
@@ -33,7 +36,7 @@ public class ApplicationContextImpl implements ApplicationContext {
         return filteredBeans.values().stream()
                 .findFirst()
                 .map(beanType::cast)
-                .orElseThrow(NoSuchBeanException::new);
+                .orElseThrow(() -> new NoSuchBeanException("No beans registered by name: " + beanType));
     }
 
     @Override
@@ -43,7 +46,7 @@ public class ApplicationContextImpl implements ApplicationContext {
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         var bean = filteredBeans.get(name);
         if (filteredBeans.size() < 1 || bean == null) {
-            throw new NoSuchBeanException();
+            throw new NoSuchBeanException("No beans registered by name: " + name);
         }
         return beanType.cast(bean);
     }
@@ -76,4 +79,33 @@ public class ApplicationContextImpl implements ApplicationContext {
     private String lowercaseFirstLetter(String value) {
         return String.valueOf(value.charAt(0)).toLowerCase().concat(value.substring(1));
     }
+
+    private void processAutowiredBeans() throws NoUniqueBeanException, NoSuchBeanException, IllegalAccessException {
+        for (Map.Entry entry : beans.entrySet()) {
+            var bean = entry.getValue();
+            for (var field : bean.getClass().getDeclaredFields()) {
+                if (field.getAnnotation(Autowired.class) != null) {
+                    var fieldName = field.getName();
+                    var beanToBeInjected = getBeanToInject(fieldName);
+
+                    field.setAccessible(true);
+                    field.set(bean, beanToBeInjected);
+                }
+            }
+        }
+    }
+
+    private Object getBeanToInject(String fieldName) throws NoUniqueBeanException, NoSuchBeanException {
+        var requiredBeanName = beans.keySet().stream()
+                .filter(f -> f.equals(fieldName)).toList();
+        if (requiredBeanName.isEmpty()) {
+            throw new NoSuchBeanException("No beans found for injection by name: " + fieldName);
+        }
+        if (requiredBeanName.size() > 1) {
+            throw new NoUniqueBeanException("Several beans created with name: " + fieldName);
+        }
+
+        return beans.get(requiredBeanName.get(0));
+    }
+
 }

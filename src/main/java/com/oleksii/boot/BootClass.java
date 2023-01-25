@@ -6,6 +6,7 @@ import com.oleksii.config.exceptions.NoUniqueBeanException;
 import com.oleksii.entities.FirstTestClass;
 import com.oleksii.entities.NoAnnotationClass;
 import com.oleksii.entities.SecondTestClass;
+import com.oleksii.services.MainService;
 
 import java.lang.reflect.InvocationTargetException;
 
@@ -27,6 +28,9 @@ public class BootClass {
         } catch (NoSuchBeanException e) {
             System.out.println("Expected NoSuchBeanException");
         }
+
+        MainService mainService = applicationContext.getBean(MainService.class);
+        mainService.invokeInnerService();
 
     }
 }
